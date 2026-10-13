@@ -1,0 +1,153 @@
+MDM Migration Administrator Guide
+Jamf Pro administrators and endpoint engineering  |  MDM enrollment migration and Platform SSO completion
+
+Purpose
+This guide documents the deployment requirements, Jamf parameter configuration, operational sequence, validation points, and troubleshooting data for the enhanced MDM Migration workflow.
+
+ 
+1. Solution overview
+MDM Migration is a Jamf Pro policy script that guides an interactive macOS user through management enrollment renewal. It validates network readiness, temporarily grants and later removes local administrator membership when required, launches the macOS enrollment workflow, validates the resulting MDM state, submits the logged-in username to Jamf, and completes the Platform SSO workflow through PSEUDO.
+2. Deployment requirements
+Requirement
+
+Expected state
+
+Why it is required
+
+Jamf Pro policy
+Script runs as root through a Jamf Pro policy.
+The workflow changes local group membership, runs inventory, launches enrollment, and can trigger another Jamf policy.
+Interactive user session
+A non-root console user must be signed in.
+swiftDialog and the macOS enrollment interface are launched in the active user context.
+swiftDialog
+Executable at /usr/local/bin/dialog.
+Provides directions, progress, completion, cancellation, and failure dialogs.
+Jamf binary
+Executable at /usr/local/bin/jamf.
+Runs the Parameter 5 PSEUDO installation custom event when needed and submits inventory with -endUsername.
+PSEUDO deployment policy
+A Jamf policy with a custom event supplied through Parameter 5 must install /usr/local/bin/pseudo.
+The migration verifies PSEUDO before enrollment and calls the configured Parameter 5 event only when the executable is missing.
+Platform SSO tooling
+The managed Extensible SSO preference must eventually expose non-empty ExtensionIdentifier, PlatformSSO.AuthenticationMethod, and PlatformSSO.AccountDisplayName values.
+The script waits for the required managed Platform SSO configuration before launching PSEUDO.
+Allowed direct internet access
+The Mac must reach https://iprofiles.apple.com.
+The workflow performs a direct preflight request before enrollment.
+VPN disconnected
+GlobalProtect/Palo Alto must not be connected and the default route must not use a utun interface.
+The migration stops and asks the user to disconnect VPN before continuing.
+macOS enrollment eligibility
+profiles renew -type enrollment must be able to launch the enrollment user interface.
+This is the enrollment mechanism used by the script.
+ 
+3. Jamf policy configuration
+Script parameters
+Jamf parameter
+
+Purpose
+
+Format
+
+Example
+
+$4 - Blocked network prefixes
+Comma-separated IPv4 prefixes that must not be used during migration. When the active en0 address begins with one of these prefixes, the user must change networks or cancel. Leave blank to disable prefix blocking.
+Comma-separated prefixes. Spaces around entries are trimmed.
+10.144.,10.145.,10.146.
+$5 - PSEUDO installation custom event
+Custom event for the Jamf policy that installs PSEUDO when /usr/local/bin/pseudo is missing. Parameter 5 is required only when PSEUDO is not already installed.
+Enter the custom event name configured on the PSEUDO installation policy.
+pseudoauto
+
+ 
+Parameter behavior
+Parameter 4 is a network block list: the script reads the current en0 IPv4 address with ipconfig and compares it to each supplied prefix. Parameter 5 supplies the custom event used to install PSEUDO only when /usr/local/bin/pseudo is missing. If PSEUDO is already installed, the Parameter 5 policy is not called.
+
+ 
+Recommended Jamf policy settings
+• Execution frequency: choose the policy frequency that matches the Self Service or remediation use case.
+• Trigger: make the workflow available through the intended Jamf trigger, commonly Self Service for user-driven migration.
+• Scope: limit deployment to Macs that require enrollment migration and meet organizational readiness criteria.
+• Script priority: place prerequisite installations before this script if swiftDialog or the Jamf binary is not already guaranteed.
+• Parameter 5 dependency: confirm the configured custom event installs an executable PSEUDO binary at /usr/local/bin/pseudo and returns a meaningful exit code.
+4. Workflow sequence
+1. Identify the active console user and verify swiftDialog.
+2. Display preparation instructions and allow the user to continue or defer.
+3. Verify PSEUDO. If missing, require Parameter 5, run jamf policy -event using its configured value, and then wait for the executable to appear.
+4. Validate the current network against Parameter 4.
+5. Require GlobalProtect/Palo Alto VPN to be disconnected and verify direct access to the Apple enrollment endpoint.
+6. Record whether the user was already an administrator.
+7. Create a user-owned swiftDialog command file and display preparation progress.
+8. Temporarily add the user to the local admin group when needed and verify membership using three independent checks.
+9. Launch profiles renew -type enrollment in the active user context.
+10. Wait for the user to finish all macOS enrollment prompts. The workflow can reopen enrollment once if requested.
+11. Run jamf recon -endUsername with the active username and validate profiles status -type enrollment.
+12. Remove temporary administrator membership and verify removal.
+13. Wait up to 60 attempts, 10 seconds apart, for non-empty ExtensionIdentifier, AuthenticationMethod, and AccountDisplayName values in /Library/Managed Preferences/com.apple.extensiblesso.plist.
+14. Launch /usr/local/bin/pseudo as root and require a zero exit code.
+15. Display success only when enrollment validation and administrator cleanup are successful.
+5. Security and rollback behavior
+• Pre-existing administrators are never demoted by the workflow.
+• Temporary administrator rights are removed on normal completion, cancellation, failure, interruption, or shell exit through the cleanup trap.
+• Administrator membership is validated with dsmemberutil, dseditgroup, and the resolved group list.
+• PSEUDO is not launched when ExtensionIdentifier, AuthenticationMethod, or AccountDisplayName is empty.
+• The migration fails closed when required prerequisites or validation checks do not pass.
+6. Logging and operational evidence
+Artifact
+
+Location
+
+Contents
+
+Primary workflow log
+/var/log/management-enrollment-renewal.log
+Timestamped workflow events, command exit codes, network/VPN diagnostics, administrator checks, enrollment state, Platform SSO readiness snapshots, and PSEUDO results.
+swiftDialog command file
+/var/tmp/management-enrollment-renewal-dialog.log
+Temporary command channel used to update and close the preparation dialog. Removed during cleanup.
+ 
+7. Validation checklist
+• Run /bin/bash -n against the production script before uploading it to Jamf.
+• Confirm Parameter 4 blocks a known test prefix and permits an approved network.
+• Confirm an active VPN connection produces the disconnect prompt.
+• Test a standard user and verify temporary admin membership is removed afterward.
+• Test a pre-existing administrator and verify the account remains an administrator.
+• Test with PSEUDO absent and confirm the custom event supplied in Parameter 5 installs it.
+• Confirm the workflow waits when any required Platform SSO value is absent or empty.
+• Confirm PSEUDO launches only after ExtensionIdentifier, AuthenticationMethod, and AccountDisplayName are populated.
+• Confirm a nonzero PSEUDO exit code produces a visible failure and a nonzero script result.
+• Confirm profiles status reports MDM enrollment as Yes after completion.
+8. Troubleshooting guide
+Symptom
+
+Likely checkpoint
+
+Administrator action
+
+Network Change Required
+The en0 address matches a Parameter 4 prefix.
+Verify the supplied prefixes and have the user connect to an approved network.
+VPN Disconnect Required
+scutil reports connected GlobalProtect/Palo Alto or the default route uses utun.
+Disconnect VPN and select Check Again. Review the VPN diagnostics in the log.
+Platform SSO components could not be installed
+The Parameter 5 custom event returned nonzero.
+Run the custom event configured in Parameter 5 directly, verify package and policy scope, and confirm /usr/local/bin/pseudo is executable.
+Company sign-in information is still being synchronized
+ExtensionIdentifier, AuthenticationMethod, or AccountDisplayName remained empty after the readiness loop.
+Review the managed com.apple.extensiblesso preference, app-sso platform -s output, and Platform SSO diagnostics in the log.
+Company sign-in setup could not be completed
+PSEUDO returned nonzero.
+Review PSEUDO output in the primary workflow log and test /usr/local/bin/pseudo in the same managed state.
+Account cleanup could not be verified
+One or more administrator removal checks still report membership.
+Review the administrator diagnostics and local admin group membership before rerunning.
+Enrollment could not be verified
+profiles status did not report MDM enrollment: Yes.
+Review the enrollment status captured in the log and confirm all macOS enrollment prompts were completed.
+ 
+9. Change control notes
+The enhanced script preserves the original MDM Migration network, VPN, enrollment, Jamf recon, and temporary-administrator workflows. The PSEUDO implementation now matches the verified Repair Device Management behavior by installing PSEUDO through the configurable Parameter 5 custom event when needed, waiting for the required managed Platform SSO values, and validating the PSEUDO exit code before reporting success.
+Internal operational guide
