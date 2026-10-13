@@ -1,0 +1,68 @@
+MDM Migration End User Guide
+Mac users completing a company management migration  |  MDM enrollment migration and Platform SSO completion
+
+What this tool does
+MDM Migration refreshes the company management registration on the Mac and completes the company sign-in setup. The workflow guides the user through required macOS prompts, automatically installs the required company sign-in component when it is missing, and performs cleanup when finished.
+
+ 
+Before you begin
+• Save open work.
+• Stay signed in to the Mac.
+• Connect to a reliable, approved network.
+• Disconnect GlobalProtect VPN if it is connected.
+• Keep the Mac awake and connected to the internet.
+• Have the normal Mac username and password available.
+Important
+Do not select Enrollment Complete until macOS has finished every enrollment prompt.
+
+ 
+Complete the migration
+1. Open MDM Migration from Self Service.
+2. Read the preparation message and select Continue.
+3. If Network Change Required appears, connect to an approved network and select Check Again.
+4. If VPN Disconnect Required appears, disconnect GlobalProtect, stay connected to the approved network, and select Check Again.
+5. Wait while the Mac is prepared. The required company sign-in component may be installed automatically during this step. Do not close the preparation window.
+6. Complete every macOS enrollment prompt. Enter the normal Mac username and password if requested, complete company sign-in, and approve management enrollment.
+7. After macOS indicates enrollment is finished, return to the Complete Management Enrollment window and select Enrollment Complete.
+8. Wait while the tool validates enrollment, restores the normal account configuration, and completes company sign-in setup.
+9. When Refresh Complete appears, select OK. The Mac can then be used normally.
+If enrollment needs to be reopened
+In the Complete Management Enrollment window, select Reopen Enrollment. Finish the remaining macOS prompts, then return to the tool and select Enrollment Complete.
+What the user may see
+Message
+
+What it means
+
+What to do
+
+Network Change Required
+The current network cannot be used for the migration.
+Connect to an approved network and select Check Again.
+VPN Disconnect Required
+GlobalProtect or another detected VPN connection is active.
+Disconnect VPN and select Check Again.
+Refresh Needs Attention
+A required validation, component installation, or company sign-in step could not be completed.
+Read the message, select OK, and follow the recommended action. Contact the Service Desk if the issue continues.
+Refresh Complete
+Management enrollment and account cleanup were validated.
+Select OK and continue working normally.
+ 
+If the workflow is canceled
+The tool removes temporary account changes during cleanup. The migration can be started again from Self Service when the Mac is ready.
+When to contact the Service Desk
+• The same failure message appears after running the tool again.
+• The enrollment window does not open.
+• The company sign-in component cannot be installed or company sign-in setup does not complete.
+• The Mac remains unenrolled after all macOS prompts were completed.
+• The tool reports that account cleanup could not be verified.
+Helpful information to provide
+• The exact message displayed by the tool.
+• Whether the Mac was connected to VPN.
+• Whether all macOS enrollment prompts completed.
+• The approximate point where the workflow stopped.
+Privacy reminder
+Do not send passwords, verification codes, or screenshots containing sensitive personal or company information.
+
+ 
+Internal operational guide
